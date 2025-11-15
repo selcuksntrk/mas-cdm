@@ -1,7 +1,8 @@
 """
 
 Decision Agents Module - This module contains classes and functions related 
-to decision-making agents within the MAS-CDM backend application.
+to decision-making agents within the MAS-CDM (Multi Agent System for Critical 
+Decision Making) backend application.
 
 """
 
@@ -79,3 +80,64 @@ draft_update_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("draft_update_agent.txt")
 )
+
+
+# Generation of Alternatives Agent
+# Generates alternative options for decision-making.
+generation_of_alternatives_agent = Agent(
+    model=settings.decision_model_name,
+    system_prompt=load_prompt("generation_of_alternatives_agent.txt")
+)
+
+
+# Result Agent
+# Evaluates and presents the final decision outcome.
+result_agent = Agent(
+    model=settings.decision_model_name,
+    system_prompt=load_prompt("result_agent.txt")
+)
+
+
+# Agents Registry for easy access and management
+decision_agents_registry = {
+    "identify_trigger_agent": identify_trigger_agent,
+    "root_cause_analyzer_agent": root_cause_analyzer_agent,
+    "scope_definition_agent": scope_definition_agent,
+    "drafting_agent": drafting_agent,
+    "establish_goals_agent": establish_goals_agent,
+    "identify_information_needed_agent": identify_information_needed_agent,
+    "retrieve_information_needed_agent": retrieve_information_needed_agent,
+    "draft_update_agent": draft_update_agent,
+    "generation_of_alternatives_agent": generation_of_alternatives_agent,
+    "result_agent": result_agent,
+}
+
+
+# Get agent method
+def get_decision_agent(agent_name: str) -> Agent:
+    """Retrieve a decision agent by name from the registry.
+
+    Args:
+        agent_name (str): The name of the agent to retrieve.
+    
+    Returns:
+        Agent: The requested decision agent.
+    """
+    
+    if agent_name not in decision_agents_registry:
+        raise ValueError(
+            f"Agent '{agent_name}' not found in the decision agents registry. "
+            f"Available agents: {list(decision_agents_registry.keys())}"
+        )
+    
+    return decision_agents_registry[agent_name]
+
+
+# List agents method
+def list_decision_agents() -> list[str]:
+    """List all available decision agent names.
+
+    Returns:
+        list[str]: A list of decision agent names.
+    """
+    return list(decision_agents_registry.keys())
