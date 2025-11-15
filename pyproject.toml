@@ -7,4 +7,6 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.121.2",
     "pydantic-ai>=1.18.0",
+    "pydantic-graph>=1.18.0",
+    "rich>=14.2.0",
 ]

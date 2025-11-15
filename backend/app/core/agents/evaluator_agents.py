@@ -107,6 +107,14 @@ generation_of_alternatives_agent_evaluator = Agent(
     system_prompt=load_prompt("generation_of_alternatives_agent_evaluator.txt"),
 )
 
+# Result Evaluator Agent
+# This agent evaluates the result of the Result Agent.
+result_agent_evaluator = Agent(
+    model=settings.evaluator_model_name,
+    output_type=EvaluationOutput,
+    system_prompt=load_prompt("result_agent_evaluator.txt"),
+)
+
 
 # Evaluator Agents Registry
 # A registry to map evaluator agent names to their instances.
@@ -120,6 +128,7 @@ evaluator_agents_registry = {
     "retrieve_information_needed_agent_evaluator": retrieve_information_needed_agent_evaluator,
     "draft_update_agent_evaluator": draft_update_agent_evaluator,
     "generation_of_alternatives_agent_evaluator": generation_of_alternatives_agent_evaluator,
+    "result_agent_evaluator": result_agent_evaluator,
 }
 
 

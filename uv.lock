@@ -1078,12 +1078,16 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic-ai" },
+    { name = "pydantic-graph" },
+    { name = "rich" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.121.2" },
     { name = "pydantic-ai", specifier = ">=1.18.0" },
+    { name = "pydantic-graph", specifier = ">=1.18.0" },
+    { name = "rich", specifier = ">=14.2.0" },
 ]
 
 [[package]]

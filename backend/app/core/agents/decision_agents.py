@@ -22,7 +22,7 @@ settings = get_settings()
 # This agent is responsible for identifying triggers based on input data.
 identify_trigger_agent = Agent(
     model=settings.decision_model_name,
-    system_prompt=load_prompt("identify_trigger_agent.md")
+    system_prompt=load_prompt("identify_trigger_agent.txt")
 )
 
 
