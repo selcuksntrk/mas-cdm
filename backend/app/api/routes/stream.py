@@ -38,8 +38,8 @@ class StreamEvent(BaseModel):
     def __init__(self, **data):
         super().__init__(**data)
         if self.timestamp is None:
-            from datetime import datetime
-            self.timestamp = datetime.utcnow().isoformat()
+            from datetime import datetime, UTC
+            self.timestamp = datetime.now(UTC).isoformat()
 
 
 async def decision_stream_generator(decision_query: str) -> AsyncGenerator[str, None]:
@@ -164,10 +164,8 @@ def determine_current_phase(state: DecisionState) -> str:
         return "Decision"
     elif state.alternatives:
         return "Alternatives"
-    elif state.complementary_info_retrieved:
+    elif state.complementary_info:
         return "Information Retrieval"
-    elif state.complementary_info_needed:
-        return "Information Gathering"
     elif state.goals:
         return "Goal Establishment"
     elif state.decision_drafted:
