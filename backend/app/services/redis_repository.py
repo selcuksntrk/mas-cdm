@@ -15,6 +15,7 @@ Redis is an in-memory data store that provides:
 """
 
 
+import asyncio
 import json
 import pickle
 from abc import ABC, abstractmethod
@@ -88,6 +89,21 @@ class IProcessRepository(ABC):
         """Clean up old completed/failed processes."""
         pass
     
+    @abstractmethod
+    async def update_with_lock(self, process_id: str, update_fn, max_retries: int = 5) -> Optional[ProcessInfo]:
+        """
+        Update a process atomically.
+        
+        Args:
+            process_id: Process ID to update
+            update_fn: Function that takes ProcessInfo and modifies it
+            max_retries: Maximum retry attempts on conflict
+            
+        Returns:
+            Updated ProcessInfo or None if update failed
+        """
+        pass
+    
 
 class InMemoryProcessRepository(IProcessRepository):
     """
@@ -154,6 +170,26 @@ class InMemoryProcessRepository(IProcessRepository):
         for pid in to_delete:
             del self._storage[pid]
         return len(to_delete)
+    
+    async def update_with_lock(self, process_id: str, update_fn, max_retries: int = 5) -> Optional[ProcessInfo]:
+        """
+        Update a process atomically (in-memory version).
+        
+        For in-memory storage, no actual locking is needed since
+        Python's GIL ensures atomic dict operations. But we implement
+        the same interface for consistency.
+        """
+        process = self._storage.get(process_id)
+        if not process:
+            return None
+        
+        # Apply update function
+        update_fn(process)
+        
+        # Save updated process
+        self._storage[process_id] = process
+        
+        return process
     
 
 class RedisProcessRepository(IProcessRepository):
@@ -280,6 +316,151 @@ class RedisProcessRepository(IProcessRepository):
         """Create Redis key for process result."""
         return f"{self._key_prefix}{process_id}:result"
     
+    async def update_with_lock(
+        self,
+        process_id: str,
+        update_fn,
+        max_retries: int = 5
+    ) -> Optional[ProcessInfo]:
+        """
+        Update a process atomically using optimistic locking.
+        
+        OPTIMISTIC LOCKING EXPLAINED:
+        ==============================
+        Redis WATCH/MULTI/EXEC provides optimistic concurrency control:
+        
+        1. WATCH key - Monitor key for changes
+        2. GET key - Read current value
+        3. Modify value in application
+        4. MULTI - Begin transaction
+        5. SET key - Write new value
+        6. EXEC - Commit if key unchanged since WATCH
+        
+        If key changed between WATCH and EXEC:
+        - EXEC returns None (transaction aborted)
+        - Retry the operation
+        
+        WHY OPTIMISTIC LOCKING?
+        =======================
+        Pros:
+        - No lock contention under low concurrency
+        - No deadlocks
+        - Better performance than pessimistic locks
+        - Simple implementation
+        
+        Cons:
+        - Retries needed under high contention
+        - Multiple round-trips on retry
+        
+        Alternative: Pessimistic locking with SET NX EX
+        - Acquire lock: SET lock:{id} 1 NX EX 10
+        - Do work
+        - Release lock: DEL lock:{id}
+        - Pros: Guaranteed single writer
+        - Cons: Lock management complexity, deadlock risk
+        
+        WHEN TO USE:
+        ============
+        Use this method for read-modify-write operations:
+        - Status updates
+        - Progress tracking
+        - Any field update that depends on current value
+        
+        DON'T USE for simple writes (new processes, deletes)
+        
+        Args:
+            process_id: Process ID to update
+            update_fn: Function that takes ProcessInfo and modifies it
+            max_retries: Maximum retry attempts on conflict
+            
+        Returns:
+            Updated ProcessInfo or None if update failed
+            
+        Example:
+            async def set_completed(process):
+                process.status = "completed"
+                process.completed_at = datetime.now(UTC).isoformat()
+            
+            updated = await repo.update_with_lock(pid, set_completed)
+        """
+        for attempt in range(max_retries):
+            try:
+                key = self._make_key(process_id)
+                result_key = self._make_result_key(process_id)
+                
+                # Start watching the keys
+                pipe = self._redis.pipeline()
+                pipe.watch(key, result_key)
+                
+                # Get current process state
+                current = await self.get(process_id)
+                if not current:
+                    pipe.unwatch()
+                    return None
+                
+                # Apply update function
+                update_fn(current)
+                
+                # Prepare metadata
+                metadata = {
+                    "process_id": current.process_id,
+                    "status": current.status,
+                    "error": current.error or "",
+                    "query": current.query or "",
+                    "created_at": current.created_at or "",
+                    "completed_at": current.completed_at or "",
+                    "current_step": current.current_step or "",
+                    "completed_steps": json.dumps(current.completed_steps or [])
+                }
+                
+                # Begin transaction
+                pipe.multi()
+                
+                # Update metadata
+                pipe.hset(key, mapping={
+                    k: json.dumps(v) if not isinstance(v, str) else v
+                    for k, v in metadata.items()
+                })
+                
+                # Update result if exists
+                if current.result:
+                    pipe.set(result_key, pickle.dumps(current.result))
+                
+                # Update completed tracking
+                if current.status in ("completed", "failed") and current.completed_at:
+                    timestamp = datetime.fromisoformat(current.completed_at).timestamp()
+                    pipe.zadd(self._completed_key, {process_id: timestamp})
+                    pipe.expire(key, self._default_ttl)
+                    if current.result:
+                        pipe.expire(result_key, self._default_ttl)
+                
+                # Execute transaction
+                result = pipe.execute()
+                
+                # If result is None, transaction was aborted (conflict)
+                if result is None:
+                    # Retry with exponential backoff
+                    await asyncio.sleep(0.01 * (2 ** attempt))
+                    continue
+                
+                # Success - return updated process
+                return current
+                
+            except redis.WatchError:
+                # Conflict detected - retry
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(0.01 * (2 ** attempt))
+                    continue
+                else:
+                    print(f"Update failed after {max_retries} retries")
+                    return None
+                    
+            except RedisError as e:
+                print(f"Redis update error: {e}")
+                return None
+        
+        return None
+
     async def save(self, process: ProcessInfo) -> None:
         """
         Save process to Redis.
@@ -304,6 +485,11 @@ class RedisProcessRepository(IProcessRepository):
         - Cons: Must fetch/parse entire object for one field
         
         We chose hash for flexibility and efficiency.
+        
+        CONCURRENCY NOTE:
+        =================
+        This method does NOT use locking. Use update_with_lock() for
+        read-modify-write operations to prevent race conditions.
         """
         try:
             key = self._make_key(process.process_id)
@@ -316,7 +502,9 @@ class RedisProcessRepository(IProcessRepository):
                 "error": process.error or "",
                 "query": process.query or "",
                 "created_at": process.created_at or "",
-                "completed_at": process.completed_at or ""
+                "completed_at": process.completed_at or "",
+                "current_step": process.current_step or "",
+                "completed_steps": json.dumps(process.completed_steps or [])
             }
             
             # Use pipeline for atomic operations
@@ -396,6 +584,13 @@ class RedisProcessRepository(IProcessRepository):
                     print(f"Error deserializing result: {e}")
             
             # Reconstruct ProcessInfo
+            completed_steps = []
+            if "completed_steps" in metadata:
+                try:
+                    completed_steps = json.loads(metadata["completed_steps"])
+                except Exception:
+                    pass
+            
             return ProcessInfo(
                 process_id=metadata.get("process_id", process_id),
                 query=metadata.get("query", ""),
@@ -403,7 +598,9 @@ class RedisProcessRepository(IProcessRepository):
                 result=result,
                 error=metadata.get("error") or None,
                 created_at=metadata.get("created_at") or None,
-                completed_at=metadata.get("completed_at") or None
+                completed_at=metadata.get("completed_at") or None,
+                current_step=metadata.get("current_step") or None,
+                completed_steps=completed_steps
             )
         
         except RedisError as e:

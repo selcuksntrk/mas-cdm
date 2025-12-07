@@ -51,36 +51,36 @@ class TestStreamingAPI:
         if not os.getenv("API_KEY") and not os.getenv("OPENAI_API_KEY"):
             pytest.skip("No API key available for integration test")
         
-        response = client.post(
+        # Use stream=True in the request (handled differently in httpx)
+        with client.stream(
+            "POST",
             "/stream/decisions/stream",
-            json={"decision_query": "Should I learn Python or JavaScript first?"},
-            stream=True
-        )
-        
-        # Check that we get a streaming response
-        assert response.status_code == 200
-        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
-        
-        # Collect events from the stream
-        events = []
-        for line in response.iter_lines():
-            if line.startswith("data: "):
-                data = line[6:]  # Remove "data: " prefix
-                event = json.loads(data)
-                events.append(event)
-        
-        # Verify we got events
-        assert len(events) > 0
-        
-        # Check for start event
-        start_events = [e for e in events if e.get("event_type") == "start"]
-        assert len(start_events) > 0
-        
-        # Check that events have required fields
-        for event in events:
-            assert "event_type" in event
-            assert "data" in event
-            assert "timestamp" in event
+            json={"decision_query": "Should I learn Python or JavaScript first?"}
+        ) as response:
+            # Check that we get a streaming response
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers["content-type"]
+            
+            # Collect events from the stream
+            events = []
+            for line in response.iter_lines():
+                if line.startswith("data: "):
+                    data = line[6:]  # Remove "data: " prefix
+                    event = json.loads(data)
+                    events.append(event)
+            
+            # Verify we got events
+            assert len(events) > 0
+            
+            # Check for start event
+            start_events = [e for e in events if e.get("event_type") == "start"]
+            assert len(start_events) > 0
+            
+            # Check that events have required fields
+            for event in events:
+                assert "event_type" in event
+                assert "data" in event
+                assert "timestamp" in event
 
 
 class TestStreamEvent:

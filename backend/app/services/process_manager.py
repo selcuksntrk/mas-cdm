@@ -209,12 +209,12 @@ class ProcessManager:
                     return
                 decision_query = stored.query
 
-            # Update status to running
-            process_info = await self._repository.get(process_id)
-            if process_info:
-                process_info.status = "running"
-                process_info.current_step = "Initializing decision workflow"
-                await self._repository.save(process_info)
+            # Update status to running atomically
+            def set_running(process: ProcessInfo):
+                process.status = "running"
+                process.current_step = "Initializing decision workflow"
+            
+            await self._repository.update_with_lock(process_id, set_running)
 
             # Run the actual decision process with real-time progress tracking
             from app.core.graph import decision_graph
@@ -282,42 +282,37 @@ class ProcessManager:
                         # Completed steps are all steps up to (but not including) current step
                         completed_steps = workflow_steps[:highest_step_index] if highest_step_index > 0 else []
                         
-                        # Update process with current step
-                        process_info = await self._repository.get(process_id)
-                        if process_info and process_info.status == "running":
-                            process_info.current_step = current_step
-                            process_info.completed_steps = completed_steps
-                            await self._repository.save(process_info)
+                        # Update process with current step atomically
+                        def update_progress(process: ProcessInfo):
+                            if process.status == "running":
+                                process.current_step = current_step
+                                process.completed_steps = completed_steps
+                        
+                        await self._repository.update_with_lock(process_id, update_progress)
                     
                     # Check if we've reached the end
                     if isinstance(node, End):
                         break
 
-            # Retrieve current process info from repository
-            process_info = await self._repository.get(process_id)
-            if process_info:
-                # Update process with result - mark all workflow steps as completed
-                process_info.status = "completed"
-                process_info.result = state
-                process_info.current_step = None
-                process_info.completed_steps = workflow_steps  # All steps completed
-                process_info.completed_at = datetime.now(UTC).isoformat()
-
-                # Save back to repository
-                await self._repository.save(process_info)
+            # Retrieve current process info and mark as completed atomically
+            def set_completed(process: ProcessInfo):
+                process.status = "completed"
+                process.result = state
+                process.current_step = None
+                process.completed_steps = workflow_steps  # All steps completed
+                process.completed_at = datetime.now(UTC).isoformat()
+            
+            await self._repository.update_with_lock(process_id, set_completed)
 
         except Exception as e:
-            # Retrieve current process info from repository
-            process_info = await self._repository.get(process_id)
-            if process_info:
-                # Update process with error
-                process_info.status = "failed"
-                process_info.error = str(e)
-                process_info.current_step = None
-                process_info.completed_at = datetime.now(UTC).isoformat()
-
-                # Save back to repository
-                await self._repository.save(process_info)
+            # Mark process as failed atomically
+            def set_failed(process: ProcessInfo):
+                process.status = "failed"
+                process.error = str(e)
+                process.current_step = None
+                process.completed_at = datetime.now(UTC).isoformat()
+            
+            await self._repository.update_with_lock(process_id, set_failed)
     
     async def get_process(self, process_id: str) -> Optional[ProcessInfo]:
         """
