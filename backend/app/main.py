@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.config import get_settings
-from backend.app.api.routes import health, graph, decisions, stream
+from backend.app.api.routes import health, graph, decisions, stream, hitl
 from backend.app.core.exceptions import (
     AgentExecutionError,
     GraphExecutionError,
@@ -87,6 +87,7 @@ app.include_router(health.router)
 app.include_router(graph.router)
 app.include_router(decisions.router)
 app.include_router(stream.router)
+app.include_router(hitl.router)
 
 
 # Specific exception handlers
