@@ -17,9 +17,9 @@ Evaluator agents use EvaluationOutput to provide:
 
 from pydantic_ai import Agent
 
-from app.config import get_settings
-from app.models.domain import EvaluationOutput
-from app.utils.helpers import load_prompt
+from backend.app.config import get_settings
+from backend.app.models.domain import EvaluationOutput
+from backend.app.utils.helpers import load_prompt
 
 
 # Get application settings

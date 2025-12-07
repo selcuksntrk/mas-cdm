@@ -16,13 +16,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from rich_prompt import Prompt
+from rich.prompt import Prompt
 
 from pydantic_graph import BaseNode, End, GraphRunContext
 from pydantic_ai import format_as_xml
 
-from app.models.domain import DecisionState, ResultOutput
-from app.core.agents.decision_agents import (
+from backend.app.models.domain import DecisionState, ResultOutput
+from backend.app.core.agents.decision_agents import (
     identify_trigger_agent,
     root_cause_analyzer_agent,
     scope_definition_agent,
@@ -34,7 +34,7 @@ from app.core.agents.decision_agents import (
     generation_of_alternatives_agent,
     result_agent
 )
-from app.core.agents.evaluator_agents import (
+from backend.app.core.agents.evaluator_agents import (
     identify_trigger_agent_evaluator,
     root_cause_analyzer_agent_evaluator,
     scope_definition_agent_evaluator,

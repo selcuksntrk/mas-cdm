@@ -53,9 +53,9 @@ from datetime import datetime, UTC
 from typing import Optional
 from uuid import uuid4
 
-from app.models.domain import DecisionState, ProcessInfo
-from app.services.decision_service import DecisionService
-from app.services.redis_repository import (
+from backend.app.models.domain import DecisionState, ProcessInfo
+from backend.app.services.decision_service import DecisionService
+from backend.app.services.redis_repository import (
     IProcessRepository,
     get_process_repository
 )

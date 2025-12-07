@@ -24,8 +24,8 @@ from typing import Optional, List, Dict
 import redis
 from redis.exceptions import RedisError
 
-from app.models.domain import ProcessInfo, DecisionState
-from app.config import get_settings
+from backend.app.models.domain import ProcessInfo, DecisionState
+from backend.app.config import get_settings
 
 
 class IProcessRepository(ABC):

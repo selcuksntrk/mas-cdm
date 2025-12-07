@@ -8,9 +8,9 @@ Decision Making) backend application.
 
 
 from pydantic_ai import Agent
-from app.config import get_settings
-from app.models.domain import ResultOutput
-from app.utils.helpers import load_prompt
+from backend.app.config import get_settings
+from backend.app.models.domain import ResultOutput
+from backend.app.utils.helpers import load_prompt
 
 
 # Get applcation settings

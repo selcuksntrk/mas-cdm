@@ -11,8 +11,8 @@ which either advances the workflow or loops back with feedback for improvement.
 
 from pydantic_graph import Graph
 
-from app.models.domain import DecisionState
-from app.core.graph.nodes import (
+from backend.app.models.domain import DecisionState
+from backend.app.core.graph.nodes import (
     GetDecision,
     IdentifyTrigger,
     AnalyzeRootCause,
@@ -25,16 +25,16 @@ from app.core.graph.nodes import (
     GenerationOfAlternatives,
     Result,
     # Evaluator nodes
-    EvaluateIdentifyTrigger,
-    EvaluateAnalyzeRootCause,
-    EvaluateScopeDefinition,
-    EvaluateDrafting,
-    EvaluateEstablishGoals,
-    EvaluateIdentifyInformationNeeded,
-    EvaluateRetrieveInformationNeeded,
-    EvaluateUpdateDraft,
-    EvaluateGenerationOfAlternatives,
-    EvaluateResult,
+    Evaluate_IdentifyTrigger,
+    Evaluate_AnalyzeRootCause,
+    Evaluate_ScopeDefinition,
+    Evaluate_Drafting,
+    Evaluate_EstablishGoals,
+    Evaluate_IdentifyInformationNeeded,
+    Evaluate_RetrieveInformationNeeded,
+    Evaluate_UpdateDraft,
+    Evaluate_GenerationOfAlternatives,
+    Evaluate_Result,
 )
 
 
@@ -45,31 +45,31 @@ GRAPH_NODES = [
     
     # Decision analysis phase
     IdentifyTrigger,
-    EvaluateIdentifyTrigger,
+    Evaluate_IdentifyTrigger,
     AnalyzeRootCause,
-    EvaluateAnalyzeRootCause,
+    Evaluate_AnalyzeRootCause,
     ScopeDefinition,
-    EvaluateScopeDefinition,
+    Evaluate_ScopeDefinition,
     
     # Decision drafting phase
     Drafting,
-    EvaluateDrafting,
+    Evaluate_Drafting,
     EstablishGoals,
-    EvaluateEstablishGoals,
+    Evaluate_EstablishGoals,
     
     # Information gathering phase
     IdentifyInformationNeeded,
-    EvaluateIdentifyInformationNeeded,
+    Evaluate_IdentifyInformationNeeded,
     RetrieveInformationNeeded,
-    EvaluateRetrieveInformationNeeded,
+    Evaluate_RetrieveInformationNeeded,
     UpdateDraft,
-    EvaluateUpdateDraft,
+    Evaluate_UpdateDraft,
     
     # Alternatives and final decision phase
     GenerationOfAlternatives,
-    EvaluateGenerationOfAlternatives,
+    Evaluate_GenerationOfAlternatives,
     Result,
-    EvaluateResult,
+    Evaluate_Result,
 ]
 
 # Define the decision-making graph with all agent and evaluator nodes
