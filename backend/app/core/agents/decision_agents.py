@@ -94,6 +94,7 @@ generation_of_alternatives_agent = Agent(
 # Evaluates and presents the final decision outcome.
 result_agent = Agent(
     model=settings.decision_model_name,
+    output_type=ResultOutput,
     system_prompt=load_prompt("result_agent.txt")
 )
 

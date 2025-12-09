@@ -6,6 +6,7 @@ It configures the FastAPI app with all routes, middleware, and settings.
 """
 
 import logging
+import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,6 +24,7 @@ from backend.app.core.exceptions import (
     VectorStoreError,
     ConcurrencyError,
 )
+from backend.app.core.observability.tracer import get_tracer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +82,84 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Add tracing middleware
+@app.middleware("http")
+async def tracing_middleware(request: Request, call_next):
+    """
+    Middleware to add request tracing and performance monitoring.
+    
+    Captures:
+    - Request ID for correlation
+    - Request timing
+    - Endpoint performance
+    - Error tracking
+    """
+    # Generate request ID (always, for all requests)
+    request_id = request.headers.get("X-Request-ID", f"req_{int(time.time() * 1000)}")
+    
+    # Skip detailed tracing for health checks and docs
+    skip_detailed_tracing = request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]
+    
+    if skip_detailed_tracing or not settings.enable_tracing:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    
+    tracer = get_tracer()
+    start_time = time.time()
+    
+    try:
+        # Log request start
+        if tracer.enable_tracing:
+            import logfire
+            logfire.info(
+                "Request started",
+                method=request.method,
+                path=request.url.path,
+                request_id=request_id
+            )
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Calculate duration
+        duration = time.time() - start_time
+        
+        # Log request completion
+        if tracer.enable_tracing:
+            import logfire
+            logfire.info(
+                "Request completed",
+                method=request.method,
+                path=request.url.path,
+                request_id=request_id,
+                status_code=response.status_code,
+                duration_seconds=duration
+            )
+        
+        # Add request ID to response headers
+        response.headers["X-Request-ID"] = request_id
+        
+        return response
+        
+    except Exception as e:
+        duration = time.time() - start_time
+        
+        # Log request error
+        if tracer.enable_tracing:
+            import logfire
+            logfire.error(
+                "Request failed",
+                method=request.method,
+                path=request.url.path,
+                request_id=request_id,
+                error=str(e),
+                duration_seconds=duration
+            )
+        
+        raise
 
 
 # Include routers

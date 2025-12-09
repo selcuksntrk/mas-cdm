@@ -46,6 +46,151 @@ from backend.app.core.agents.evaluator_agents import (
     generation_of_alternatives_agent_evaluator
 )
 
+from backend.app.core.observability.tracer import trace_agent
+
+
+# Instrumented agent runners to centralize tracing inputs
+@trace_agent(
+    "identify_trigger_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_identify_trigger(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
+    return await identify_trigger_agent.run(prompt)
+
+
+@trace_agent(
+    "root_cause_analyzer_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_root_cause_analyzer(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
+    return await root_cause_analyzer_agent.run(prompt)
+
+
+@trace_agent(
+    "scope_definition_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_scope_definition(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
+    return await scope_definition_agent.run(prompt)
+
+
+@trace_agent(
+    "drafting_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_drafting(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
+    return await drafting_agent.run(prompt)
+
+
+@trace_agent(
+    "establish_goals_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_establish_goals(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
+    return await establish_goals_agent.run(prompt)
+
+
+@trace_agent(
+    "identify_information_needed_agent",
+    input_extractor=lambda args, kwargs: {
+        "has_evaluation": kwargs.get("has_evaluation", False),
+        "has_complementary": kwargs.get("has_complementary", False),
+    },
+)
+async def run_identify_information_needed(
+    state: DecisionState,
+    prompt: str,
+    *,
+    has_evaluation: bool = False,
+    has_complementary: bool = False,
+):
+    return await identify_information_needed_agent.run(prompt)
+
+
+@trace_agent(
+    "retrieve_information_needed_agent",
+    input_extractor=lambda args, kwargs: {
+        "has_evaluation": kwargs.get("has_evaluation", False),
+        "info_needed_length": kwargs.get("info_needed_length", 0),
+    },
+)
+async def run_retrieve_information_needed(
+    state: DecisionState,
+    prompt: str,
+    *,
+    has_evaluation: bool = False,
+    info_needed_length: int = 0,
+):
+    return await retrieve_information_needed_agent.run(prompt)
+
+
+@trace_agent(
+    "draft_update_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+        "complementary_info_num": kwargs.get("complementary_info_num", 0),
+    },
+)
+async def run_draft_update(
+    state: DecisionState,
+    prompt: str,
+    *,
+    retry_count: int = 0,
+    has_evaluation: bool = False,
+    complementary_info_num: int = 0,
+):
+    return await draft_update_agent.run(prompt)
+
+
+@trace_agent(
+    "generation_of_alternatives_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_generation_of_alternatives(
+    state: DecisionState,
+    prompt: str,
+    *,
+    retry_count: int = 0,
+    has_evaluation: bool = False,
+):
+    return await generation_of_alternatives_agent.run(prompt)
+
+
+@trace_agent(
+    "result_agent",
+    input_extractor=lambda args, kwargs: {
+        "retry_count": kwargs.get("retry_count", 0),
+        "has_evaluation": kwargs.get("has_evaluation", False),
+    },
+)
+async def run_result_agent(
+    state: DecisionState,
+    prompt: str,
+    *,
+    retry_count: int = 0,
+    has_evaluation: bool = False,
+):
+    return await result_agent.run(prompt)
+
 
 
 # Agent Node Definitions
@@ -84,8 +229,13 @@ class IdentifyTrigger(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await identify_trigger_agent.run(prompt)
+        
+        result = await run_identify_trigger(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_IdentifyTrigger(answer=result.output, retry_count=self.retry_count)
     
 
@@ -115,8 +265,13 @@ class AnalyzeRootCause(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await root_cause_analyzer_agent.run(prompt)
+        
+        result = await run_root_cause_analyzer(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_AnalyzeRootCause(result.output, retry_count=self.retry_count)
     
 
@@ -147,8 +302,13 @@ class ScopeDefinition(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await scope_definition_agent.run(prompt)
+        
+        result = await run_scope_definition(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_ScopeDefinition(result.output, retry_count=self.retry_count)
     
 
@@ -181,8 +341,13 @@ class Drafting(BaseNode[DecisionState]):
         else:
             prompt = base_prompt
             print("\n\n Drafting Prompt: ", prompt)
-            
-        result = await drafting_agent.run(prompt)
+        
+        result = await run_drafting(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_Drafting(result.output, retry_count=self.retry_count)
     
 
@@ -209,8 +374,13 @@ class EstablishGoals(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await establish_goals_agent.run(prompt)
+        
+        result = await run_establish_goals(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_EstablishGoals(result.output, retry_count=self.retry_count)
     
     
@@ -245,8 +415,13 @@ class IdentifyInformationNeeded(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await identify_information_needed_agent.run(prompt)
+        
+        result = await run_identify_information_needed(
+            ctx.state,
+            prompt,
+            has_evaluation=bool(self.evaluation),
+            has_complementary=bool(self.complementary_info),
+        )
         return Evaluate_IdentifyInformationNeeded(result.output)
     
     
@@ -276,8 +451,13 @@ class RetrieveInformationNeeded(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await retrieve_information_needed_agent.run(prompt)
+        
+        result = await run_retrieve_information_needed(
+            ctx.state,
+            prompt,
+            has_evaluation=bool(self.evaluation),
+            info_needed_length=len(self.info_needed),
+        )
         return Evaluate_RetrieveInformationNeeded(result.output)
     
 
@@ -307,8 +487,14 @@ class UpdateDraft(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await draft_update_agent.run(prompt)
+        
+        result = await run_draft_update(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+            complementary_info_num=ctx.state.complementary_info_num,
+        )
         return Evaluate_UpdateDraft(result.output, retry_count=self.retry_count)
     
 
@@ -336,8 +522,13 @@ class GenerationOfAlternatives(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await generation_of_alternatives_agent.run(prompt)
+        
+        result = await run_generation_of_alternatives(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_GenerationOfAlternatives(result.output, retry_count=self.retry_count)
     
     
@@ -371,8 +562,13 @@ class Result(BaseNode[DecisionState]):
             )
         else:
             prompt = base_prompt
-            
-        result = await result_agent.run(prompt)
+        
+        result = await run_result_agent(
+            ctx.state,
+            prompt,
+            retry_count=self.retry_count,
+            has_evaluation=bool(self.evaluation),
+        )
         return Evaluate_Result(result.output, retry_count=self.retry_count)
     
 

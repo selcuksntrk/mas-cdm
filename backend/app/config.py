@@ -131,6 +131,27 @@ class Settings(BaseSettings):
         description="Maximum concurrent decision-making processes"
     )
     
+    # ===== Observability & Tracing Configuration =====
+    enable_tracing: bool = Field(
+        default=True,
+        description="Enable distributed tracing with logfire"
+    )
+    
+    logfire_token: Optional[str] = Field(
+        None,
+        description="Logfire API token for tracing (optional, will use environment variable if not set)"
+    )
+    
+    trace_sampling_rate: float = Field(
+        default=1.0,
+        description="Sampling rate for traces (0.0 to 1.0, where 1.0 traces all requests)"
+    )
+    
+    track_token_usage: bool = Field(
+        default=True,
+        description="Track token usage and cost for each agent execution"
+    )
+    
     # ===== Database Configuration (optional, for future use) =====
     database_url: Optional[str] = Field(
         None,

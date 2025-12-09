@@ -7,6 +7,7 @@ and asynchronously.
 """
 
 
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -48,16 +49,20 @@ class DecisionService:
             >>> state = await service.run_decision("Should I switch careers?")
             >>> print(state.result)
         """
-        # Create initial state with decision query
-        state = DecisionState(decision_requested=decision_query)
+        # Create initial state with decision query and unique ID for tracing
+        decision_id = f"dec_{uuid.uuid4().hex[:12]}"
+        state = DecisionState(
+            decision_requested=decision_query,
+            decision_id=decision_id
+        )
         
         # Create first node (GetDecision will skip prompting since query is set)
         first_node = GetDecision()
         
         # Run the graph
-        await decision_graph.run(first_node, state=state)
+        result = await decision_graph.run(first_node, state=state)
         
-        return state
+        return result.state
     
     async def run_decision_with_persistence(
         self,
@@ -91,9 +96,13 @@ class DecisionService:
         persistence = FileStatePersistence(persistence_file)
         persistence.set_graph_types(decision_graph)
         
-        # Create state and node
+        # Create state and node with unique ID for tracing
         node = GetDecision()
-        state = DecisionState(decision_requested=decision_query)
+        decision_id = f"dec_{uuid.uuid4().hex[:12]}"
+        state = DecisionState(
+            decision_requested=decision_query,
+            decision_id=decision_id
+        )
         
         # Run the graph with persistence
         history = []

@@ -36,6 +36,12 @@ class DecisionState(BaseModel):
         use_enum_values=True,
     )
     
+    # Metadata
+    decision_id: Optional[str] = Field(
+        default=None,
+        description="Unique identifier for this decision process (for tracing and correlation)"
+    )
+    
     # User Input
     decision_requested: str = Field(
         default="",
