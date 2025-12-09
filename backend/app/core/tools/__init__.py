@@ -9,6 +9,8 @@ and execute actions beyond text generation.
 from .base import Tool, ToolRegistry, ToolResult, ToolError
 from .calculator import CalculatorTool
 from .web_search import WebSearchTool
+from .manager import ToolManager
+from backend.app.config import get_settings
 
 # Create global tool registry
 registry = ToolRegistry()
@@ -17,6 +19,14 @@ registry = ToolRegistry()
 registry.register(CalculatorTool())
 registry.register(WebSearchTool())
 
+_settings = get_settings()
+manager = ToolManager(
+    registry_ref=registry,
+    rate_limit_per_minute=_settings.tool_rate_limit_per_minute,
+    execution_timeout=_settings.tool_execution_timeout,
+    audit_logging=_settings.enable_tool_audit_log,
+)
+
 __all__ = [
     "Tool",
     "ToolRegistry",
@@ -24,5 +34,7 @@ __all__ = [
     "ToolError",
     "CalculatorTool",
     "WebSearchTool",
+    "ToolManager",
+    "manager",
     "registry",
 ]

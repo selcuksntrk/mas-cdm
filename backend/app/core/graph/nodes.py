@@ -13,6 +13,7 @@ Node Types:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Optional, Union
 
@@ -21,6 +22,7 @@ from rich.prompt import Prompt
 from pydantic_graph import BaseNode, End, GraphRunContext
 from pydantic_ai import format_as_xml
 
+from backend.app.config import get_settings
 from backend.app.models.domain import DecisionState, ResultOutput
 from backend.app.core.agents.decision_agents import (
     identify_trigger_agent,
@@ -47,6 +49,77 @@ from backend.app.core.agents.evaluator_agents import (
 )
 
 from backend.app.core.observability.tracer import trace_agent
+from backend.app.core.resilience.retry import CircuitBreaker, RetryPolicy, execute_with_resilience
+from backend.app.core.exceptions import (
+    LLMProviderError,
+    LLMAPIConnectionError,
+    LLMRateLimitError,
+)
+
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+# Shared retry/circuit configuration for agent calls
+AGENT_RETRY_POLICY = RetryPolicy(
+    max_attempts=settings.agent_max_retries,
+    backoff_factor=settings.agent_retry_backoff,
+    max_backoff=settings.agent_retry_max_backoff,
+    jitter=settings.agent_retry_jitter,
+    retryable_exceptions=(
+        LLMProviderError,
+        LLMAPIConnectionError,
+        LLMRateLimitError,
+        TimeoutError,
+    ),
+)
+
+AGENT_CIRCUIT_BREAKER = CircuitBreaker(
+    failure_threshold=settings.circuit_breaker_failure_threshold,
+    recovery_time=settings.circuit_breaker_recovery_time,
+    half_open_success_threshold=settings.circuit_breaker_half_open_success_threshold,
+)
+
+
+async def _run_agent_with_model(agent, prompt: str, model_name: str):
+    """Execute an agent with a specific model, restoring the original afterwards."""
+    original_model = getattr(agent, "model", None)
+    try:
+        if hasattr(agent, "model"):
+            setattr(agent, "model", model_name)
+        return await agent.run(prompt)
+    finally:
+        if hasattr(agent, "model"):
+            setattr(agent, "model", original_model)
+
+
+async def _execute_agent(agent_name: str, agent, prompt: str):
+    """Centralized agent execution with retries, fallback model, and circuit breaker."""
+
+    async def primary_call():
+        return await agent.run(prompt)
+
+    fallback_call = None
+    if settings.fallback_model_name:
+        async def fallback_call():
+            return await _run_agent_with_model(agent, prompt, settings.fallback_model_name)
+
+    def on_retry(attempt: int, error: BaseException) -> None:
+        logger.warning(
+            "Agent %s retry %s/%s after error: %s",
+            agent_name,
+            attempt,
+            AGENT_RETRY_POLICY.max_attempts,
+            error,
+        )
+
+    return await execute_with_resilience(
+        primary_call,
+        fallback=fallback_call,
+        policy=AGENT_RETRY_POLICY,
+        circuit_breaker=AGENT_CIRCUIT_BREAKER,
+        on_retry=on_retry,
+    )
 
 
 # Instrumented agent runners to centralize tracing inputs
@@ -58,7 +131,7 @@ from backend.app.core.observability.tracer import trace_agent
     },
 )
 async def run_identify_trigger(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
-    return await identify_trigger_agent.run(prompt)
+    return await _execute_agent("identify_trigger_agent", identify_trigger_agent, prompt)
 
 
 @trace_agent(
@@ -69,7 +142,7 @@ async def run_identify_trigger(state: DecisionState, prompt: str, *, retry_count
     },
 )
 async def run_root_cause_analyzer(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
-    return await root_cause_analyzer_agent.run(prompt)
+    return await _execute_agent("root_cause_analyzer_agent", root_cause_analyzer_agent, prompt)
 
 
 @trace_agent(
@@ -80,7 +153,7 @@ async def run_root_cause_analyzer(state: DecisionState, prompt: str, *, retry_co
     },
 )
 async def run_scope_definition(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
-    return await scope_definition_agent.run(prompt)
+    return await _execute_agent("scope_definition_agent", scope_definition_agent, prompt)
 
 
 @trace_agent(
@@ -91,7 +164,7 @@ async def run_scope_definition(state: DecisionState, prompt: str, *, retry_count
     },
 )
 async def run_drafting(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
-    return await drafting_agent.run(prompt)
+    return await _execute_agent("drafting_agent", drafting_agent, prompt)
 
 
 @trace_agent(
@@ -102,7 +175,7 @@ async def run_drafting(state: DecisionState, prompt: str, *, retry_count: int = 
     },
 )
 async def run_establish_goals(state: DecisionState, prompt: str, *, retry_count: int = 0, has_evaluation: bool = False):
-    return await establish_goals_agent.run(prompt)
+    return await _execute_agent("establish_goals_agent", establish_goals_agent, prompt)
 
 
 @trace_agent(
@@ -119,7 +192,7 @@ async def run_identify_information_needed(
     has_evaluation: bool = False,
     has_complementary: bool = False,
 ):
-    return await identify_information_needed_agent.run(prompt)
+    return await _execute_agent("identify_information_needed_agent", identify_information_needed_agent, prompt)
 
 
 @trace_agent(
@@ -136,7 +209,7 @@ async def run_retrieve_information_needed(
     has_evaluation: bool = False,
     info_needed_length: int = 0,
 ):
-    return await retrieve_information_needed_agent.run(prompt)
+    return await _execute_agent("retrieve_information_needed_agent", retrieve_information_needed_agent, prompt)
 
 
 @trace_agent(
@@ -155,7 +228,7 @@ async def run_draft_update(
     has_evaluation: bool = False,
     complementary_info_num: int = 0,
 ):
-    return await draft_update_agent.run(prompt)
+    return await _execute_agent("draft_update_agent", draft_update_agent, prompt)
 
 
 @trace_agent(
@@ -172,7 +245,7 @@ async def run_generation_of_alternatives(
     retry_count: int = 0,
     has_evaluation: bool = False,
 ):
-    return await generation_of_alternatives_agent.run(prompt)
+    return await _execute_agent("generation_of_alternatives_agent", generation_of_alternatives_agent, prompt)
 
 
 @trace_agent(
@@ -189,7 +262,7 @@ async def run_result_agent(
     retry_count: int = 0,
     has_evaluation: bool = False,
 ):
-    return await result_agent.run(prompt)
+    return await _execute_agent("result_agent", result_agent, prompt)
 
 
 

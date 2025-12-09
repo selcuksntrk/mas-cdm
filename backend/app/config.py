@@ -67,6 +67,72 @@ class Settings(BaseSettings):
     def evaluator_model_name(self) -> str:
         """Alias for evaluation_model"""
         return self.evaluation_model
+
+    fallback_model_name: Optional[str] = Field(
+        default=None,
+        description="Optional fallback model for agent calls when primary fails"
+    )
+
+    # Retry & Circuit Breaker Configuration
+    agent_max_retries: int = Field(
+        default=3,
+        ge=0,
+        description="Max retry attempts for agent execution (excluding fallback)"
+    )
+
+    agent_retry_backoff: float = Field(
+        default=0.5,
+        ge=0.0,
+        description="Exponential backoff base (seconds) for retries"
+    )
+
+    agent_retry_max_backoff: float = Field(
+        default=8.0,
+        ge=0.0,
+        description="Maximum backoff delay between retries (seconds)"
+    )
+
+    agent_retry_jitter: float = Field(
+        default=0.2,
+        ge=0.0,
+        description="Random jitter added to retry backoff (seconds)"
+    )
+
+    circuit_breaker_failure_threshold: int = Field(
+        default=3,
+        ge=1,
+        description="Number of consecutive failures before tripping the circuit breaker"
+    )
+
+    circuit_breaker_recovery_time: float = Field(
+        default=30.0,
+        ge=1.0,
+        description="Time window (seconds) before a half-open probe is allowed"
+    )
+
+    circuit_breaker_half_open_success_threshold: int = Field(
+        default=1,
+        ge=1,
+        description="Number of successful half-open calls needed to close the breaker"
+    )
+
+    # ===== Tooling Configuration =====
+    tool_rate_limit_per_minute: int = Field(
+        default=60,
+        ge=1,
+        description="Maximum tool executions per minute across the process"
+    )
+
+    tool_execution_timeout: float = Field(
+        default=15.0,
+        ge=1.0,
+        description="Per-tool execution timeout in seconds"
+    )
+
+    enable_tool_audit_log: bool = Field(
+        default=True,
+        description="Enable audit logging for tool executions"
+    )
     
     # ===== Server Configuration =====
     host: str = Field(

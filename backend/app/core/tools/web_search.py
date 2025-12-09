@@ -5,7 +5,8 @@ Provides web search capabilities for agents.
 Currently returns mock data - integrate with a real search API in production.
 """
 
-from typing import Any, List
+import time
+from typing import Any, Dict, List, Tuple
 from .base import Tool, ToolParameter, ToolError
 
 
@@ -19,6 +20,13 @@ class WebSearchTool(Tool):
     - DuckDuckGo API
     - Tavily Search API
     """
+
+    def __init__(self):
+        super().__init__()
+        self._cache: Dict[Tuple[str, int], Tuple[float, Any]] = {}
+        # Defaults; can be tuned via config if needed in future.
+        self._cache_ttl_seconds = 300
+        self._cache_max_entries = 50
     
     def get_name(self) -> str:
         return "web_search"
@@ -79,6 +87,17 @@ class WebSearchTool(Tool):
         
         This is a MOCK implementation. Replace with actual search API.
         """
+        cache_key = (query, max_results)
+        now = time.monotonic()
+
+        # Return cached result when fresh
+        cached = self._cache.get(cache_key)
+        if cached and (now - cached[0] <= self._cache_ttl_seconds):
+            return {
+                **cached[1],
+                "cached": True,
+            }
+
         # Mock search results
         mock_results = [
             {
@@ -104,9 +123,19 @@ class WebSearchTool(Tool):
         # Limit results
         results = mock_results[:max_results]
         
-        return {
+        response = {
             "query": query,
             "num_results": len(results),
             "results": results,
-            "note": "MOCK DATA - Integrate with real search API in production (Google, Bing, Tavily, etc.)"
+            "note": "MOCK DATA - Integrate with real search API in production (Google, Bing, Tavily, etc.)",
+            "cached": False,
         }
+
+        # Cache the response
+        if len(self._cache) >= self._cache_max_entries:
+            # Drop oldest entry
+            oldest_key = min(self._cache.items(), key=lambda item: item[1][0])[0]
+            self._cache.pop(oldest_key, None)
+        self._cache[cache_key] = (now, response)
+
+        return response

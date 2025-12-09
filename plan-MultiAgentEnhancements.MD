@@ -1,8 +1,42 @@
 # Multi-Agent System Enhancement Implementation Plan
 
-This plan systematically adds 7 critical components plus architectural improvements to transform your codebase from a strong prototype into a production-ready multi-agent platform. Each phase is independently testable and builds on previous work.
+This plan systematically adds 8 critical components plus architectural improvements to transform your codebase from a strong prototype into a production-ready multi-agent platform. Each phase is independently testable and builds on previous work.
 
+## Phase 1: Observability & Tracing Infrastructure
 
+**Priority:** CRITICAL
+
+### Implementation Steps
+
+1. **Create Tracing Module**
+   - File: `backend/app/core/observability/tracer.py`
+   - Implement `AgentTracer` class with logfire integration
+   - Methods: `trace_agent_execution()`, `log_agent_decision()`, `track_agent_performance()`
+   - Add token/cost tracking per agent execution
+   - Structured logging with trace context
+
+2. **Integrate with Existing Code**
+   - Add `@trace_agent` decorator to agent calls in `backend/app/core/graph/nodes.py`
+   - Add FastAPI middleware to `backend/app/main.py` for request tracing
+   - Update `backend/app/config.py` with tracing configuration:
+     - `enable_tracing: bool`
+     - `logfire_token: str`
+     - `trace_sampling_rate: float`
+
+3. **Testing**
+   - Create `backend/tests/test_observability.py`
+   - Test trace capture for agent execution
+   - Test performance metrics collection
+   - Test cost tracking accuracy
+   - Verify trace context propagation
+
+### Success Criteria
+- All agent executions produce traces in logfire
+- Token usage tracked per decision_id
+- Request-to-agent trace correlation works
+- Performance overhead < 5%
+
+---
 
 ## Phase 2: Error Recovery & Retry Logic
 

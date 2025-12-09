@@ -59,3 +59,13 @@ class VectorStoreError(Exception):
 class ConcurrencyError(Exception):
     """Raised when concurrent access causes conflicts."""
     pass
+
+
+class CircuitBreakerOpenError(Exception):
+    """Raised when a circuit breaker is open and calls are short-circuited."""
+    pass
+
+
+class RetryError(Exception):
+    """Raised when an operation exhausts all retry attempts."""
+    pass

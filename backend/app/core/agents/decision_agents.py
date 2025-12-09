@@ -11,10 +11,14 @@ from pydantic_ai import Agent
 from backend.app.config import get_settings
 from backend.app.models.domain import ResultOutput
 from backend.app.utils.helpers import load_prompt
+from backend.app.core.tools import manager
 
 
 # Get applcation settings
 settings = get_settings()
+
+# Tools exposed to decision agents for prompt conditioning or function calling
+decision_agent_tools = manager.list_tools()
 
 
 

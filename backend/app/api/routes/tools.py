@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 
-from backend.app.core.tools import registry
+from backend.app.core.tools import manager
 from backend.app.core.tools.base import ToolSchema
 
 
@@ -55,7 +55,7 @@ async def list_tools():
         ["calculator", "web_search"]
         ```
     """
-    return registry.list_tools()
+    return manager.list_tools()
 
 
 @router.get("/schemas", response_model=List[ToolInfo])
@@ -81,14 +81,10 @@ async def get_tool_schemas():
         ```
     """
     tools = []
-    for tool_name in registry.list_tools():
-        tool = registry.get(tool_name)
-        if tool:
-            tools.append(ToolInfo(
-                name=tool.name,
-                description=tool.description,
-                schema=tool.get_schema().model_dump()
-            ))
+    for tool_name in manager.list_tools():
+        info = manager.get_tool_info(tool_name)
+        if info:
+            tools.append(ToolInfo(**info))
     return tools
 
 
@@ -118,7 +114,8 @@ async def get_openai_functions():
         ]
         ```
     """
-    return registry.get_openai_functions()
+    # manager delegates to registry; keep behavior identical
+    return manager.registry.get_openai_functions()
 
 
 @router.get("/{tool_name}", response_model=ToolInfo)
@@ -135,15 +132,11 @@ async def get_tool_info(tool_name: str):
     Raises:
         404: If tool not found
     """
-    tool = registry.get(tool_name)
-    if tool is None:
+    info = manager.get_tool_info(tool_name)
+    if info is None:
         raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
     
-    return ToolInfo(
-        name=tool.name,
-        description=tool.description,
-        schema=tool.get_schema().model_dump()
-    )
+    return ToolInfo(**info)
 
 
 @router.post("/execute", response_model=ToolExecuteResponse)
@@ -178,7 +171,7 @@ async def execute_tool(request: ToolExecuteRequest):
         }
         ```
     """
-    result = await registry.execute(request.tool_name, **request.parameters)
+    result = await manager.execute(request.tool_name, **request.parameters)
     
     return ToolExecuteResponse(
         success=result.success,
@@ -200,6 +193,6 @@ async def tools_health():
     return {
         "status": "healthy",
         "service": "tools",
-        "registered_tools": len(registry),
-        "tools": registry.list_tools()
+        "registered_tools": len(manager.registry),
+        "tools": manager.list_tools()
     }
