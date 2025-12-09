@@ -212,6 +212,16 @@ class EvaluationOutput(BaseModel):
         min_length=5,
         description="Comment on the answer with specific feedback (minimum 5 characters)"
     )
+
+
+class AgentMetadata(BaseModel):
+    """Metadata describing an agent for discovery/registry."""
+
+    name: str = Field(..., description="Unique agent name")
+    role: str = Field(..., description="Role or function of the agent")
+    description: str = Field(..., description="Human-readable description")
+    model: str = Field(..., description="Model backing the agent")
+    tools: list[str] = Field(default_factory=list, description="Tools available to the agent")
     
     
 # Process Info Model

@@ -9,9 +9,10 @@ Decision Making) backend application.
 
 from pydantic_ai import Agent
 from backend.app.config import get_settings
-from backend.app.models.domain import ResultOutput
+from backend.app.models.domain import ResultOutput, AgentMetadata
 from backend.app.utils.helpers import load_prompt
 from backend.app.core.tools import manager
+from backend.app.core.agents.registry import agent_registry
 
 
 # Get applcation settings
@@ -21,12 +22,31 @@ settings = get_settings()
 decision_agent_tools = manager.list_tools()
 
 
+def _meta(name: str, role: str, description: str) -> AgentMetadata:
+    return AgentMetadata(
+        name=name,
+        role=role,
+        description=description,
+        model=settings.decision_model_name,
+        tools=decision_agent_tools,
+    )
+
+
 
 # Identify Trigger Agent
 # This agent is responsible for identifying triggers based on input data.
 identify_trigger_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("identify_trigger_agent.txt")
+)
+agent_registry.register(
+    "identify_trigger_agent",
+    identify_trigger_agent,
+    _meta(
+        "identify_trigger_agent",
+        "analyzer",
+        "Identifies the trigger for the decision",
+    ),
 )
 
 
@@ -36,6 +56,15 @@ root_cause_analyzer_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("root_cause_analyzer_agent.txt")
 )
+agent_registry.register(
+    "root_cause_analyzer_agent",
+    root_cause_analyzer_agent,
+    _meta(
+        "root_cause_analyzer_agent",
+        "analyzer",
+        "Analyzes root causes of identified triggers",
+    ),
+)
 
 
 # Scope Definition Agent
@@ -43,6 +72,15 @@ root_cause_analyzer_agent = Agent(
 scope_definition_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("scope_definition_agent.txt")
+)
+agent_registry.register(
+    "scope_definition_agent",
+    scope_definition_agent,
+    _meta(
+        "scope_definition_agent",
+        "planner",
+        "Defines boundaries and scope of the decision",
+    ),
 )
 
 
@@ -52,6 +90,15 @@ drafting_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("drafting_agent.txt")
 )
+agent_registry.register(
+    "drafting_agent",
+    drafting_agent,
+    _meta(
+        "drafting_agent",
+        "writer",
+        "Drafts the initial decision",
+    ),
+)
 
 
 # Establish Goals Agent
@@ -59,6 +106,15 @@ drafting_agent = Agent(
 establish_goals_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("establish_goals_agent.txt")
+)
+agent_registry.register(
+    "establish_goals_agent",
+    establish_goals_agent,
+    _meta(
+        "establish_goals_agent",
+        "planner",
+        "Establishes goals for the decision",
+    ),
 )
 
 
@@ -68,6 +124,15 @@ identify_information_needed_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("identify_information_needed_agent.txt")
 )
+agent_registry.register(
+    "identify_information_needed_agent",
+    identify_information_needed_agent,
+    _meta(
+        "identify_information_needed_agent",
+        "researcher",
+        "Identifies information needs",
+    ),
+)
 
 
 # Retrieve information Needed Agent
@@ -75,6 +140,15 @@ identify_information_needed_agent = Agent(
 retrieve_information_needed_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("retrieve_information_needed_agent.txt")
+)
+agent_registry.register(
+    "retrieve_information_needed_agent",
+    retrieve_information_needed_agent,
+    _meta(
+        "retrieve_information_needed_agent",
+        "researcher",
+        "Retrieves needed information",
+    ),
 )
 
 
@@ -84,6 +158,15 @@ draft_update_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("draft_update_agent.txt")
 )
+agent_registry.register(
+    "draft_update_agent",
+    draft_update_agent,
+    _meta(
+        "draft_update_agent",
+        "writer",
+        "Updates the draft decision",
+    ),
+)
 
 
 # Generation of Alternatives Agent
@@ -91,6 +174,15 @@ draft_update_agent = Agent(
 generation_of_alternatives_agent = Agent(
     model=settings.decision_model_name,
     system_prompt=load_prompt("generation_of_alternatives_agent.txt")
+)
+agent_registry.register(
+    "generation_of_alternatives_agent",
+    generation_of_alternatives_agent,
+    _meta(
+        "generation_of_alternatives_agent",
+        "ideation",
+        "Generates alternative options",
+    ),
 )
 
 
@@ -100,6 +192,15 @@ result_agent = Agent(
     model=settings.decision_model_name,
     output_type=ResultOutput,
     system_prompt=load_prompt("result_agent.txt")
+)
+agent_registry.register(
+    "result_agent",
+    result_agent,
+    _meta(
+        "result_agent",
+        "decision",
+        "Evaluates and presents the final decision outcome",
+    ),
 )
 
 
