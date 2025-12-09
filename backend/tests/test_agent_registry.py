@@ -2,10 +2,7 @@ import pytest
 
 from backend.app.core.agents.registry import AgentRegistry
 from backend.app.models.domain import AgentMetadata
-
-
-class DummyAgent:
-    pass
+from backend.tests.fixtures.agent_mocks import FakeAgent
 
 
 def _meta(name: str) -> AgentMetadata:
@@ -20,7 +17,7 @@ def _meta(name: str) -> AgentMetadata:
 
 def test_register_and_get():
     registry = AgentRegistry()
-    agent = DummyAgent()
+    agent = FakeAgent()
     registry.register("dummy", agent, _meta("dummy"))
 
     assert registry.get("dummy") is agent
@@ -31,17 +28,17 @@ def test_register_and_get():
 
 def test_duplicate_registration_raises():
     registry = AgentRegistry()
-    agent = DummyAgent()
+    agent = FakeAgent()
     registry.register("dummy", agent, _meta("dummy"))
 
     with pytest.raises(ValueError):
-        registry.register("dummy", DummyAgent(), _meta("dummy"))
+        registry.register("dummy", FakeAgent(), _meta("dummy"))
 
 
 def test_listings():
     registry = AgentRegistry()
-    registry.register("a", DummyAgent(), _meta("a"))
-    registry.register("b", DummyAgent(), _meta("b"))
+    registry.register("a", FakeAgent(), _meta("a"))
+    registry.register("b", FakeAgent(), _meta("b"))
 
     names = registry.list_agents()
     assert set(names) == {"a", "b"}

@@ -16,9 +16,7 @@ backend/tests/
 └── test_integration.py      # Integration and E2E tests
 ```
 
-## Running Tests
-
-### Run All Tests
+# Run All Tests (coverage on by default via pytest.ini)
 
 ```bash
 # Using pytest directly
@@ -30,7 +28,9 @@ uv run pytest backend/tests/
 # With verbose output
 pytest backend/tests/ -v
 
-# With coverage
+# With HTML coverage
+pytest backend/tests/ --cov=backend --cov-report=html
+```
 pytest backend/tests/ --cov=backend --cov-report=html
 ```
 
@@ -205,7 +205,7 @@ pytest backend/tests/ --cov=backend --cov-report=html
 # View report
 open htmlcov/index.html
 
-# Generate terminal report
+# Generate terminal report (already default)
 pytest backend/tests/ --cov=backend --cov-report=term-missing
 ```
 
