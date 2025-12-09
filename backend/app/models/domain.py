@@ -91,6 +91,17 @@ class DecisionState(BaseModel):
         ge=0,  # Greater than or equal to 0
         description="Number of information items gathered"
     )
+
+    # Memory / Retrieval
+    memory_context: str = Field(
+        default="",
+        description="Retrieved context from memory store"
+    )
+    memory_hits: int = Field(
+        default=0,
+        ge=0,
+        description="Number of memory documents retrieved for the decision"
+    )
     
     # Refinement Phase
     decision_draft_updated: str = Field(

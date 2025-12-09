@@ -11,6 +11,7 @@ from .calculator import CalculatorTool
 from .web_search import WebSearchTool
 from .manager import ToolManager
 from backend.app.config import get_settings
+from backend.app.core.memory.retrieval_tool import RetrievalTool
 
 # Create global tool registry
 registry = ToolRegistry()
@@ -18,6 +19,7 @@ registry = ToolRegistry()
 # Register built-in tools
 registry.register(CalculatorTool())
 registry.register(WebSearchTool())
+registry.register(RetrievalTool())
 
 _settings = get_settings()
 manager = ToolManager(
@@ -34,6 +36,7 @@ __all__ = [
     "ToolError",
     "CalculatorTool",
     "WebSearchTool",
+    "RetrievalTool",
     "ToolManager",
     "manager",
     "registry",

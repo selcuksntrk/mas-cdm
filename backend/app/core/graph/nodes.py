@@ -49,6 +49,7 @@ from backend.app.core.agents.evaluator_agents import (
 )
 
 from backend.app.core.observability.tracer import trace_agent
+from backend.app.core.memory.store import memory_store
 from backend.app.core.resilience.retry import CircuitBreaker, RetryPolicy, execute_with_resilience
 from backend.app.core.exceptions import (
     LLMProviderError,
@@ -279,6 +280,11 @@ class GetDecision(BaseNode[DecisionState]):
         if not ctx.state.decision_requested:
             decision_query = Prompt.ask('What is the decision you want me to help?')
             ctx.state.decision_requested = decision_query
+        # Pull memory context for the decision
+        retrieved = memory_store.search(ctx.state.decision_requested, top_k=3)
+        if retrieved:
+            ctx.state.memory_hits = len(retrieved)
+            ctx.state.memory_context = "\n".join(doc.content for doc, _ in retrieved)
         return IdentifyTrigger()
     
 
@@ -292,6 +298,8 @@ class IdentifyTrigger(BaseNode[DecisionState]):
     
     async def run(self, ctx: GraphRunContext[DecisionState]) -> Evaluate_IdentifyTrigger:
         base_prompt = f"Here the decision requested by user: {ctx.state.decision_requested}"
+        if ctx.state.memory_context:
+            base_prompt += f"\nHere is relevant context from memory: {ctx.state.memory_context}"
         
         if self.evaluation:
             prompt = (
@@ -328,6 +336,8 @@ class AnalyzeRootCause(BaseNode[DecisionState]):
             f"Here the decision requested by user: {ctx.state.decision_requested}\n"
             f"Here the identified trigger: {ctx.state.trigger}"
         )
+        if ctx.state.memory_context:
+            base_prompt += f"\nHere is relevant context from memory: {ctx.state.memory_context}"
         
         if self.evaluation:
             prompt = (
@@ -365,6 +375,8 @@ class ScopeDefinition(BaseNode[DecisionState]):
             f"Here the identified trigger: {ctx.state.trigger}\n"
             f"Here the root cause analysis: {ctx.state.root_cause}"
         )
+        if ctx.state.memory_context:
+            base_prompt += f"\nHere is relevant context from memory: {ctx.state.memory_context}"
         
         if self.evaluation:
             prompt = (
@@ -403,6 +415,8 @@ class Drafting(BaseNode[DecisionState]):
             f"Here the root cause analysis: {ctx.state.root_cause}\n"
             f"Here the scope definition: {ctx.state.scope_definition}"
         )
+        if ctx.state.memory_context:
+            base_prompt += f"\nHere is relevant context from memory: {ctx.state.memory_context}"
         
         if self.evaluation:
             prompt = (
@@ -437,6 +451,8 @@ class EstablishGoals(BaseNode[DecisionState]):
     
     async def run(self, ctx: GraphRunContext[DecisionState]) -> Evaluate_EstablishGoals:
         base_prompt = f"Here the decision requested by user: {ctx.state.decision_drafted}"
+        if ctx.state.memory_context:
+            base_prompt += f"\nHere is relevant context from memory: {ctx.state.memory_context}"
         
         if self.evaluation:
             prompt = (
@@ -473,6 +489,8 @@ class IdentifyInformationNeeded(BaseNode[DecisionState]):
             f"Here the decision requested by user: {ctx.state.decision_drafted}\n"
             f"Here the established goals for the decision: {ctx.state.goals}"
         )
+        if ctx.state.memory_context:
+            base_prompt += f"\nHere is relevant context from memory: {ctx.state.memory_context}"
         
         if self.evaluation:
             prompt = (
