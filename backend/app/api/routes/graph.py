@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException
 
 from backend.app.models.responses import MermaidResponse, ErrorResponse
 from backend.app.core.graph import get_graph_mermaid, get_graph_structure
+from backend.app.core.graph.builder import graph_builder, GraphValidationError
+from backend.app.models.requests import BuildGraphRequest
 from backend.app.core.graph.nodes import GetDecision
 
 
@@ -78,3 +80,17 @@ async def get_structure():
             status_code=500,
             detail=f"Error getting graph structure: {str(e)}"
         )
+
+
+@router.post("/build")
+async def build_graph(request: BuildGraphRequest):
+    """
+    Validate a custom graph specification and return the normalized structure.
+    """
+    try:
+        built = graph_builder.build(request.nodes, request.edges)
+        return built
+    except GraphValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc))

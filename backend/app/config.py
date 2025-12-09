@@ -15,13 +15,51 @@ from pathlib import Path
 from typing import Optional
 import configparser
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Define base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_FILE = BASE_DIR / "config.ini"
+
+
+class AgentConfig(BaseModel):
+    """Configuration specific to agent lifecycle and per-agent settings."""
+
+    max_concurrent_agents: int = Field(
+        default=10,
+        ge=1,
+        description="Maximum number of agents allowed to run concurrently",
+    )
+    agent_timeout: int = Field(
+        default=300,
+        ge=1,
+        description="Timeout in seconds for an active agent before termination",
+    )
+    enable_agent_to_agent_communication: bool = Field(
+        default=True,
+        description="Allow agents to send messages to each other",
+    )
+    agent_model_mapping: dict[str, str] = Field(
+        default_factory=lambda: {
+            "identify_trigger_agent": "gpt-4o-mini",
+            "root_cause_analyzer_agent": "gpt-4o",
+            "scope_definition_agent": "gpt-4o",
+            "drafting_agent": "gpt-4o",
+            "establish_goals_agent": "gpt-4o-mini",
+            "identify_information_needed_agent": "gpt-4o-mini",
+            "retrieve_information_needed_agent": "gpt-4o-mini",
+            "draft_update_agent": "gpt-4o",
+            "generation_of_alternatives_agent": "gpt-4o",
+            "result_agent": "gpt-4o",
+        },
+        description="Per-agent model overrides keyed by agent name",
+    )
+    agent_temperature_mapping: dict[str, float] = Field(
+        default_factory=dict,
+        description="Optional per-agent temperature overrides",
+    )
 
 
 class Settings(BaseSettings):
@@ -153,6 +191,12 @@ class Settings(BaseSettings):
     reload: bool = Field(
         default=True,
         description="Enable auto-reload in development"
+    )
+
+    # ===== Agent Lifecycle & Configuration =====
+    agent_config: AgentConfig = Field(
+        default_factory=AgentConfig,
+        description="Lifecycle, concurrency, and per-agent configuration",
     )
     
     # ===== CORS Configuration =====
@@ -293,6 +337,27 @@ class Settings(BaseSettings):
         if v_upper not in valid_levels:
             raise ValueError(f"log_level must be one of {valid_levels}")
         return v_upper
+
+    # Convenience accessors for agent configuration
+    @property
+    def max_concurrent_agents(self) -> int:
+        return self.agent_config.max_concurrent_agents
+
+    @property
+    def agent_timeout(self) -> int:
+        return self.agent_config.agent_timeout
+
+    @property
+    def agent_model_mapping(self) -> dict[str, str]:
+        return self.agent_config.agent_model_mapping
+
+    @property
+    def agent_temperature_mapping(self) -> dict[str, float]:
+        return self.agent_config.agent_temperature_mapping
+
+    def get_agent_model(self, agent_name: str) -> str:
+        """Return the configured model for an agent, falling back to decision model."""
+        return self.agent_model_mapping.get(agent_name, self.decision_model_name)
     
     @classmethod
     def settings_customise_sources(
