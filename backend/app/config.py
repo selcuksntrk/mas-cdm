@@ -43,16 +43,16 @@ class AgentConfig(BaseModel):
     )
     agent_model_mapping: dict[str, str] = Field(
         default_factory=lambda: {
-            "identify_trigger_agent": "gpt-4o-mini",
-            "root_cause_analyzer_agent": "gpt-4o",
-            "scope_definition_agent": "gpt-4o",
-            "drafting_agent": "gpt-4o",
-            "establish_goals_agent": "gpt-4o-mini",
-            "identify_information_needed_agent": "gpt-4o-mini",
-            "retrieve_information_needed_agent": "gpt-4o-mini",
-            "draft_update_agent": "gpt-4o",
-            "generation_of_alternatives_agent": "gpt-4o",
-            "result_agent": "gpt-4o",
+            "identify_trigger_agent": "openai:gpt-4o-mini",
+            "root_cause_analyzer_agent": "openai:gpt-4o",
+            "scope_definition_agent": "openai:gpt-4o",
+            "drafting_agent": "openai:gpt-4o",
+            "establish_goals_agent": "openai:gpt-4o-mini",
+            "identify_information_needed_agent": "openai:gpt-4o-mini",
+            "retrieve_information_needed_agent": "openai:gpt-4o-mini",
+            "draft_update_agent": "openai:gpt-4o",
+            "generation_of_alternatives_agent": "openai:gpt-4o",
+            "result_agent": "openai:gpt-4o",
         },
         description="Per-agent model overrides keyed by agent name",
     )
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     )
     
     model_name: str = Field(
-        default="gpt-4.1-mini",
+        default="openai:gpt-4.1-mini",
         description="AI model name to use for agents"
     )
     
@@ -96,7 +96,7 @@ class Settings(BaseSettings):
         return self.model_name
     
     evaluation_model: str = Field(
-        default="gpt-5-nano",
+        default="openai:gpt-5-nano",
         description="AI model name to use for evaluators"
     )
     

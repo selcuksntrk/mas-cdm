@@ -5,7 +5,7 @@ These represent the core concepts in your application domain.
 """
 
 from typing import Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -241,7 +241,10 @@ class AgentMessage(BaseModel):
     )
     message_type: str = Field(..., description="Message category or intent")
     payload: dict[str, Any] = Field(default_factory=dict, description="Message payload")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp")
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="UTC timestamp",
+    )
     
     
 # Process Info Model
