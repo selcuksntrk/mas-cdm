@@ -12,6 +12,7 @@ which either advances the workflow or loops back with feedback for improvement.
 from pydantic_graph import Graph
 
 from backend.app.models.domain import DecisionState
+from backend.app.core.communication.message_broker import message_broker
 from backend.app.core.graph.nodes import (
     GetDecision,
     IdentifyTrigger,

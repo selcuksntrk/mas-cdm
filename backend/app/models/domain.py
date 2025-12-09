@@ -4,7 +4,7 @@ Domain Models - Core business entities
 These represent the core concepts in your application domain.
 """
 
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -101,6 +101,12 @@ class DecisionState(BaseModel):
         default=0,
         ge=0,
         description="Number of memory documents retrieved for the decision"
+    )
+
+    # Inter-agent messages
+    messages: list["AgentMessage"] = Field(
+        default_factory=list,
+        description="Messages exchanged between agents during execution",
     )
     
     # Refinement Phase
@@ -222,6 +228,20 @@ class AgentMetadata(BaseModel):
     description: str = Field(..., description="Human-readable description")
     model: str = Field(..., description="Model backing the agent")
     tools: list[str] = Field(default_factory=list, description="Tools available to the agent")
+
+
+class AgentMessage(BaseModel):
+    """Envelope for inter-agent communication."""
+
+    message_id: str = Field(..., description="Unique message identifier")
+    from_agent: str = Field(..., description="Sender agent identifier")
+    to_agent: Optional[str] = Field(
+        default=None,
+        description="Target agent identifier; None means broadcast",
+    )
+    message_type: str = Field(..., description="Message category or intent")
+    payload: dict[str, Any] = Field(default_factory=dict, description="Message payload")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp")
     
     
 # Process Info Model
