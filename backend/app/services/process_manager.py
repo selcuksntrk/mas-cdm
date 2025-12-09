@@ -55,10 +55,8 @@ from uuid import uuid4
 
 from backend.app.models.domain import DecisionState, ProcessInfo
 from backend.app.services.decision_service import DecisionService
-from backend.app.services.redis_repository import (
-    IProcessRepository,
-    get_process_repository
-)
+from backend.app.services.persistence.base import IProcessRepository
+from backend.app.services.persistence.factory import get_process_repository
 
 
 

@@ -18,7 +18,6 @@ Redis is an in-memory data store that provides:
 import asyncio
 import json
 import pickle
-from abc import ABC, abstractmethod
 from datetime import datetime, UTC
 from typing import Optional, List, Dict
 
@@ -27,83 +26,8 @@ from redis.exceptions import RedisError
 
 from backend.app.models.domain import ProcessInfo, DecisionState
 from backend.app.config import get_settings
+from backend.app.services.persistence.base import IProcessRepository
 
-
-class IProcessRepository(ABC):
-    """
-    Interface for process storage.
-    
-    WHY AN INTERFACE?
-    Defines a contract that all implementations must follow.
-    This enables:
-    - Dependency Inversion: Depend on interface, not implementation
-    - Easy testing: Create mock repositories
-    - Flexibility: Swap storage without changing business logic
-    
-    Example:
-        # Production
-        repo = RedisProcessRepository()
-        
-        # Testing
-        repo = InMemoryProcessRepository()
-        
-        # Future
-        repo = PostgreSQLProcessRepository()
-        
-        # ProcessManager works with all of them!
-        manager = ProcessManager(repo)
-    """
-    
-    @abstractmethod
-    async def save(self, process: ProcessInfo) -> None:
-        """Save a process."""
-        pass
-    
-    @abstractmethod
-    async def get(self, process_id: str) -> Optional[ProcessInfo]:
-        """Get a process by ID."""
-        pass
-    
-    @abstractmethod
-    async def exists(self, process_id: str) -> bool:
-        """Check if a process exists."""
-        pass
-    
-    @abstractmethod
-    async def delete(self, process_id: str) -> bool:
-        """Delete a process. Returns True if deleted, False if not found."""
-        pass
-    
-    @abstractmethod
-    async def list_all(self) -> List[ProcessInfo]:
-        """List all processes."""
-        pass
-    
-    @abstractmethod
-    async def get_stats(self) -> Dict[str, int]:
-        """Get statistics about processes."""
-        pass
-    
-    @abstractmethod
-    async def cleanup_completed(self, older_than_hours: int = 24) -> int:
-        """Clean up old completed/failed processes."""
-        pass
-    
-    @abstractmethod
-    async def update_with_lock(self, process_id: str, update_fn, max_retries: int = 5) -> Optional[ProcessInfo]:
-        """
-        Update a process atomically.
-        
-        Args:
-            process_id: Process ID to update
-            update_fn: Function that takes ProcessInfo and modifies it
-            max_retries: Maximum retry attempts on conflict
-            
-        Returns:
-            Updated ProcessInfo or None if update failed
-        """
-        pass
-    
 
 class InMemoryProcessRepository(IProcessRepository):
     """
@@ -829,26 +753,21 @@ def get_process_repository(use_redis: bool = None) -> IProcessRepository:
         repo = get_process_repository(use_redis=True)
     """
     if use_redis is None:
-        # Auto-detect: Try Redis, fall back to in-memory
         settings = get_settings()
-        if settings.enable_redis_persistence:
-            try:
-                # Test Redis connection
-                client = redis.Redis(
-                    host=settings.redis_host,
-                    port=settings.redis_port,
-                    db=settings.redis_db,
-                    socket_connect_timeout=2
-                )
-                client.ping()  # Test connection
-                return RedisProcessRepository(redis_client=client)
-            except Exception as e:
-                print(f"Redis not available, using in-memory: {e}")
-                return InMemoryProcessRepository()
-        else:
+        use_redis = bool(settings.enable_redis_persistence)
+
+    if use_redis:
+        try:
+            client = redis.Redis(
+                host=get_settings().redis_host,
+                port=get_settings().redis_port,
+                db=get_settings().redis_db,
+                socket_connect_timeout=2,
+            )
+            client.ping()
+            return RedisProcessRepository(redis_client=client)
+        except Exception as e:
+            print(f"Redis not available, using in-memory: {e}")
             return InMemoryProcessRepository()
-    
-    elif use_redis:
-        return RedisProcessRepository()
-    else:
-        return InMemoryProcessRepository()
+
+    return InMemoryProcessRepository()

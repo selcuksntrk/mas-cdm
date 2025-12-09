@@ -273,6 +273,11 @@ class Settings(BaseSettings):
         default=False,
         description="Enable Redis for process persistence"
     )
+
+    persistence_backend: str = Field(
+        default="memory",
+        description="Persistence backend: memory | redis | postgres",
+    )
     
     redis_host: str = Field(
         default="localhost",

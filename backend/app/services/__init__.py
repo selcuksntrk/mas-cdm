@@ -6,6 +6,8 @@ from backend.app.services.redis_repository import (
     RedisProcessRepository,
     InMemoryProcessRepository,
 )
+from backend.app.services.persistence.base import IProcessRepository
+from backend.app.services.persistence.factory import get_process_repository
 
 __all__ = [
     "DecisionService",
@@ -13,4 +15,6 @@ __all__ = [
     "get_process_manager",
     "RedisProcessRepository",
     "InMemoryProcessRepository",
+    "IProcessRepository",
+    "get_process_repository",
 ]
