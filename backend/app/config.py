@@ -111,11 +111,24 @@ class Settings(BaseSettings):
         description="Optional fallback model for agent calls when primary fails"
     )
 
+    # Agent Call Timeout
+    agent_call_timeout: float = Field(
+        default=120.0,
+        ge=10.0,
+        description="Timeout in seconds for individual LLM agent calls"
+    )
+
     # Retry & Circuit Breaker Configuration
     agent_max_retries: int = Field(
         default=3,
         ge=0,
         description="Max retry attempts for agent execution (excluding fallback)"
+    )
+
+    evaluator_max_retries: int = Field(
+        default=2,
+        ge=0,
+        description="Max retry attempts for evaluator feedback loops before accepting the answer"
     )
 
     agent_retry_backoff: float = Field(
@@ -192,6 +205,30 @@ class Settings(BaseSettings):
         default=True,
         description="Enable auto-reload in development"
     )
+    
+    # ===== Security Configuration =====
+    api_auth_key: Optional[str] = Field(
+        default=None,
+        description="API key for authenticating requests (required in production)"
+    )
+    
+    enable_auth: bool = Field(
+        default=True,
+        description="Enable API key authentication (disable only for development)"
+    )
+    
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://localhost:8000"],
+        description="Allowed CORS origins (comma-separated in env: CORS_ORIGINS)"
+    )
+    
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from comma-separated string or list."""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
 
     # ===== Agent Lifecycle & Configuration =====
     agent_config: AgentConfig = Field(
@@ -199,12 +236,7 @@ class Settings(BaseSettings):
         description="Lifecycle, concurrency, and per-agent configuration",
     )
     
-    # ===== CORS Configuration =====
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
-        description="Allowed CORS origins"
-    )
-    
+    # ===== CORS Configuration (continued) =====
     cors_allow_credentials: bool = Field(
         default=True,
         description="Allow credentials in CORS"

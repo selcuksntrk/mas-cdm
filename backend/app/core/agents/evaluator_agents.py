@@ -18,12 +18,24 @@ Evaluator agents use EvaluationOutput to provide:
 from pydantic_ai import Agent
 
 from backend.app.config import get_settings
-from backend.app.models.domain import EvaluationOutput
+from backend.app.models.domain import EvaluationOutput, AgentMetadata
 from backend.app.utils.helpers import load_prompt
+from backend.app.core.agents.registry import agent_registry
 
 
 # Get application settings
 settings = get_settings()
+
+
+def _evaluator_meta(name: str, description: str) -> AgentMetadata:
+    """Create metadata for evaluator agents."""
+    return AgentMetadata(
+        name=name,
+        role="evaluator",
+        description=description,
+        model=settings.evaluator_model_name,
+        tools=[],  # Evaluators don't use tools
+    )
 
 
 
@@ -34,6 +46,11 @@ identify_trigger_agent_evaluator = Agent(
     output_type=EvaluationOutput,
     system_prompt=load_prompt("identify_trigger_agent_evaluator.txt"),
 )
+agent_registry.register(
+    "identify_trigger_agent_evaluator",
+    identify_trigger_agent_evaluator,
+    _evaluator_meta("identify_trigger_agent_evaluator", "Evaluates trigger identification"),
+)
 
 
 # Root Cause Analyzer Evaluator Agent
@@ -42,6 +59,11 @@ root_cause_analyzer_agent_evaluator = Agent(
     model=settings.evaluator_model_name,
     output_type=EvaluationOutput,
     system_prompt=load_prompt("root_cause_analyzer_agent_evaluator.txt"),
+)
+agent_registry.register(
+    "root_cause_analyzer_agent_evaluator",
+    root_cause_analyzer_agent_evaluator,
+    _evaluator_meta("root_cause_analyzer_agent_evaluator", "Evaluates root cause analysis"),
 )
 
 
@@ -52,6 +74,11 @@ scope_definition_agent_evaluator = Agent(
     output_type=EvaluationOutput,
     system_prompt=load_prompt("scope_definition_agent_evaluator.txt"),
 )
+agent_registry.register(
+    "scope_definition_agent_evaluator",
+    scope_definition_agent_evaluator,
+    _evaluator_meta("scope_definition_agent_evaluator", "Evaluates scope definition"),
+)
 
 
 # Drafting Evaluator Agent
@@ -60,6 +87,11 @@ drafting_agent_evaluator = Agent(
     model=settings.evaluator_model_name,
     output_type=EvaluationOutput,
     system_prompt=load_prompt("drafting_agent_evaluator.txt"),
+)
+agent_registry.register(
+    "drafting_agent_evaluator",
+    drafting_agent_evaluator,
+    _evaluator_meta("drafting_agent_evaluator", "Evaluates decision drafts"),
 )
 
 
@@ -70,6 +102,11 @@ establish_goals_agent_evaluator = Agent(
     output_type=EvaluationOutput,
     system_prompt=load_prompt("establish_goals_agent_evaluator.txt"),
 )
+agent_registry.register(
+    "establish_goals_agent_evaluator",
+    establish_goals_agent_evaluator,
+    _evaluator_meta("establish_goals_agent_evaluator", "Evaluates goal establishment"),
+)
 
 
 # Identify Information Needed Evaluator Agent
@@ -78,6 +115,11 @@ identify_information_needed_agent_evaluator = Agent(
     model=settings.evaluator_model_name,
     output_type=EvaluationOutput,
     system_prompt=load_prompt("identify_information_needed_agent_evaluator.txt"),
+)
+agent_registry.register(
+    "identify_information_needed_agent_evaluator",
+    identify_information_needed_agent_evaluator,
+    _evaluator_meta("identify_information_needed_agent_evaluator", "Evaluates information needs"),
 )
 
 
@@ -88,6 +130,11 @@ retrieve_information_needed_agent_evaluator = Agent(
     output_type=EvaluationOutput,
     system_prompt=load_prompt("retrieve_information_needed_agent_evaluator.txt"),
 )
+agent_registry.register(
+    "retrieve_information_needed_agent_evaluator",
+    retrieve_information_needed_agent_evaluator,
+    _evaluator_meta("retrieve_information_needed_agent_evaluator", "Evaluates retrieved information"),
+)
 
 
 # Draft Update Evaluator Agent
@@ -96,6 +143,11 @@ draft_update_agent_evaluator = Agent(
     model=settings.evaluator_model_name,
     output_type=EvaluationOutput,
     system_prompt=load_prompt("draft_update_agent_evaluator.txt"),
+)
+agent_registry.register(
+    "draft_update_agent_evaluator",
+    draft_update_agent_evaluator,
+    _evaluator_meta("draft_update_agent_evaluator", "Evaluates draft updates"),
 )
 
 
@@ -106,6 +158,11 @@ generation_of_alternatives_agent_evaluator = Agent(
     output_type=EvaluationOutput,
     system_prompt=load_prompt("generation_of_alternatives_agent_evaluator.txt"),
 )
+agent_registry.register(
+    "generation_of_alternatives_agent_evaluator",
+    generation_of_alternatives_agent_evaluator,
+    _evaluator_meta("generation_of_alternatives_agent_evaluator", "Evaluates generated alternatives"),
+)
 
 # Result Evaluator Agent
 # This agent evaluates the result of the Result Agent.
@@ -114,10 +171,15 @@ result_agent_evaluator = Agent(
     output_type=EvaluationOutput,
     system_prompt=load_prompt("result_agent_evaluator.txt"),
 )
+agent_registry.register(
+    "result_agent_evaluator",
+    result_agent_evaluator,
+    _evaluator_meta("result_agent_evaluator", "Evaluates final results"),
+)
 
 
-# Evaluator Agents Registry
-# A registry to map evaluator agent names to their instances.
+# Legacy evaluator_agents_registry - DEPRECATED, use agent_registry instead
+# Kept for backwards compatibility
 evaluator_agents_registry = {
     "identify_trigger_agent_evaluator": identify_trigger_agent_evaluator,
     "root_cause_analyzer_agent_evaluator": root_cause_analyzer_agent_evaluator,
@@ -135,22 +197,29 @@ evaluator_agents_registry = {
 # Retrieve evaluator agent by name
 def get_evaluator_agent(agent_name: str) -> Agent:
     """
-    Retrieve an evaluator agent by its name from the registry.
+    Retrieve an evaluator agent by its name from the unified registry.
 
     Args:
         agent_name (str): The name of the evaluator agent to retrieve.
     
     Returns:
         Agent: The evaluator agent instance.
+    
+    Note:
+        This function now uses the unified agent_registry instead of the 
+        separate evaluator_agents_registry. Both registries are kept in sync.
     """
-    
-    if agent_name not in evaluator_agents_registry:
+    agent = agent_registry.get(agent_name)
+    if agent is None:
+        # Fallback to legacy registry for backwards compatibility
+        if agent_name in evaluator_agents_registry:
+            return evaluator_agents_registry[agent_name]
+        available = [name for name in agent_registry.list() if "evaluator" in name]
         raise ValueError(
-            f"Agent '{agent_name}' not found in the evaluator agents registry. "
-            f"Available agents: {list(evaluator_agents_registry.keys())}"
+            f"Agent '{agent_name}' not found. "
+            f"Available evaluator agents: {available}"
         )
-    
-    return evaluator_agents_registry[agent_name]
+    return agent
 
 
 # List evaluator agents method

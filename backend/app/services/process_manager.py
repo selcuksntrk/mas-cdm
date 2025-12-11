@@ -49,6 +49,8 @@ This follows:
 
 
 import asyncio
+import logging
+import traceback
 from datetime import datetime, UTC
 from typing import Optional
 from uuid import uuid4
@@ -58,6 +60,9 @@ from backend.app.services.decision_service import DecisionService
 from backend.app.services.persistence.base import IProcessRepository
 from backend.app.services.persistence.factory import get_process_repository
 
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 
 # Process Manager
@@ -215,9 +220,9 @@ class ProcessManager:
             await self._repository.update_with_lock(process_id, set_running)
 
             # Run the actual decision process with real-time progress tracking
-            from app.core.graph import decision_graph
-            from app.core.graph.nodes import GetDecision
-            from app.models.domain import DecisionState
+            from backend.app.core.graph import decision_graph
+            from backend.app.core.graph.nodes import GetDecision
+            from backend.app.models.domain import DecisionState
             from pydantic_graph import End
             
             # Create initial state
@@ -303,12 +308,35 @@ class ProcessManager:
             await self._repository.update_with_lock(process_id, set_completed)
 
         except Exception as e:
-            # Mark process as failed atomically
+            # Enhanced error logging with full context
+            error_type = type(e).__name__
+            error_traceback = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            
+            # Log structured error information
+            logger.error(
+                "Process execution failed",
+                extra={
+                    "process_id": process_id,
+                    "error_type": error_type,
+                    "error_message": str(e),
+                    "current_step": state.decision_id if state else None,
+                },
+                exc_info=True
+            )
+            
+            # Mark process as failed atomically with enhanced error metadata
             def set_failed(process: ProcessInfo):
                 process.status = "failed"
-                process.error = str(e)
+                # Store structured error information
+                process.error = f"[{error_type}] {str(e)}"
                 process.current_step = None
                 process.completed_at = datetime.now(UTC).isoformat()
+                
+                # Optionally store full traceback in metadata (sanitized)
+                if not hasattr(process, 'metadata'):
+                    process.metadata = {}
+                process.metadata['error_traceback'] = error_traceback[:5000]  # Limit size
+                process.metadata['error_type'] = error_type
             
             await self._repository.update_with_lock(process_id, set_failed)
     

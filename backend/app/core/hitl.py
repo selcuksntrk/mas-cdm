@@ -5,6 +5,7 @@ This module provides functionality for suspending and resuming graph execution
 to allow human intervention and approval at critical decision points.
 """
 
+import uuid
 from enum import Enum
 from typing import Optional, Dict, Any
 from datetime import datetime, UTC

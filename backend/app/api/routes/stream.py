@@ -19,6 +19,7 @@ from backend.app.models.domain import DecisionState
 from backend.app.services import DecisionService
 from backend.app.core.graph import decision_graph
 from backend.app.core.graph.nodes import GetDecision
+from pydantic_graph import End
 
 
 router = APIRouter(
@@ -126,8 +127,9 @@ async def run_graph_with_streaming(first_node, state: DecisionState):
     """
     Run the decision graph and yield state at each step.
     
-    This is a helper function that executes the graph and yields intermediate
-    states for streaming progress updates.
+    This function uses the graph's iter() method to step through execution,
+    yielding the state after each agent node (skipping evaluator nodes for
+    cleaner progress updates).
     
     Args:
         first_node: The starting node of the graph
@@ -136,18 +138,27 @@ async def run_graph_with_streaming(first_node, state: DecisionState):
     Yields:
         DecisionState at each step of execution
     """
-    # For now, we'll simulate streaming by running the graph and yielding
-    # at key milestones. In a more advanced implementation, you'd modify
-    # the graph executor to support streaming callbacks.
-    
-    # Run a partial execution and yield state
+    # Yield initial state
     yield state
     
-    # Execute the graph completely
-    await decision_graph.run(first_node, state=state)
-    
-    # Yield final state
-    yield state
+    try:
+        # Use graph iteration to capture intermediate steps
+        async with decision_graph.iter(first_node, state=state) as run:
+            while True:
+                node = await run.next()
+                node_name = type(node).__name__
+                
+                # Check if we've reached the end
+                if isinstance(node, End):
+                    break
+                
+                # Yield state for agent nodes (skip evaluators for cleaner UX)
+                if not node_name.startswith("Evaluate_"):
+                    yield state
+                    
+    except Exception as e:
+        # Re-raise to be handled by the caller
+        raise
 
 
 def determine_current_phase(state: DecisionState) -> str:

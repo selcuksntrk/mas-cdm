@@ -7,10 +7,98 @@ Common utility functions used across the application.
 from pathlib import Path
 from typing import Optional
 import logging
+import tiktoken
 
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+
+def truncate_text(text: str, max_chars: int = 4000, suffix: str = "\n[...truncated...]") -> str:
+    """
+    Truncate text to a maximum character count.
+    
+    Args:
+        text: The text to truncate
+        max_chars: Maximum number of characters to keep
+        suffix: String to append when text is truncated
+        
+    Returns:
+        Truncated text with suffix if needed, original text if within limit
+        
+    Example:
+        >>> truncate_text("Very long text...", max_chars=10)
+        "Very long [...truncated...]"
+    """
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + suffix
+
+
+def estimate_tokens(text: str, model: str = "gpt-4") -> int:
+    """
+    Estimate the number of tokens in a text string.
+    
+    Args:
+        text: The text to estimate tokens for
+        model: Model name to use for encoding (default: gpt-4)
+        
+    Returns:
+        Estimated token count
+        
+    Example:
+        >>> estimate_tokens("Hello world")
+        2
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        # Fallback to cl100k_base encoding for unknown models
+        encoding = tiktoken.get_encoding("cl100k_base")
+    
+    return len(encoding.encode(text))
+
+
+def truncate_by_tokens(
+    text: str,
+    max_tokens: int = 2000,
+    model: str = "gpt-4",
+    suffix: str = "\n[...truncated...]"
+) -> str:
+    """
+    Truncate text to a maximum token count.
+    
+    Args:
+        text: The text to truncate
+        max_tokens: Maximum number of tokens to keep
+        model: Model name to use for encoding
+        suffix: String to append when text is truncated
+        
+    Returns:
+        Text truncated to max_tokens with suffix if needed
+        
+    Example:
+        >>> truncate_by_tokens("Very long text...", max_tokens=5)
+        "Very long [...truncated...]"
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+    
+    tokens = encoding.encode(text)
+    
+    if len(tokens) <= max_tokens:
+        return text
+    
+    # Calculate how many tokens the suffix uses
+    suffix_tokens = len(encoding.encode(suffix))
+    truncate_to = max(0, max_tokens - suffix_tokens)
+    
+    truncated_tokens = tokens[:truncate_to]
+    truncated_text = encoding.decode(truncated_tokens)
+    
+    return truncated_text + suffix
 
 
 def load_prompt(filename: str, prompts_dir: Optional[Path] = None) -> str:

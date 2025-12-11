@@ -7,9 +7,10 @@ It configures the FastAPI app with all routes, middleware, and settings.
 
 import logging
 import time
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Security, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 
 from backend.app.config import get_settings
 from backend.app.api.routes import health, graph, decisions, stream, hitl, tools, agents
@@ -33,6 +34,46 @@ logger = logging.getLogger(__name__)
 
 # Get application settings
 settings = get_settings()
+
+
+# API Key Security (optional, based on settings)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_api_key(api_key: str = Security(api_key_header)):
+    """
+    Verify API key for protected endpoints.
+    
+    Only enforced if settings.enable_auth is True.
+    Raises HTTPException if auth is enabled and key is invalid.
+    """
+    # Skip auth if not enabled
+    if not settings.enable_auth:
+        return None
+    
+    # Auth is enabled - require valid key
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Provide X-API-Key header.",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    
+    if not settings.api_auth_key:
+        logger.error("Auth enabled but API_AUTH_KEY not configured!")
+        raise HTTPException(
+            status_code=500,
+            detail="Authentication not properly configured",
+        )
+    
+    if api_key != settings.api_auth_key:
+        logger.warning(f"Invalid API key attempt")
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API key",
+        )
+    
+    return api_key
 
 
 # Create FastAPI application
@@ -74,10 +115,10 @@ app = FastAPI(
 )
 
 
-# Configure CORS
+# Configure CORS with environment-specific origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify actual origins
+    allow_origins=settings.cors_origins if settings.cors_origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -163,13 +204,34 @@ async def tracing_middleware(request: Request, call_next):
 
 
 # Include routers
+# Health check doesn't require auth
 app.include_router(health.router)
-app.include_router(graph.router)
-app.include_router(decisions.router)
-app.include_router(stream.router)
-app.include_router(hitl.router)
-app.include_router(tools.router)
-app.include_router(agents.router)
+
+# Protected routers - require API key if auth is enabled
+app.include_router(
+    graph.router,
+    dependencies=[Depends(verify_api_key)] if settings.enable_auth else []
+)
+app.include_router(
+    decisions.router,
+    dependencies=[Depends(verify_api_key)] if settings.enable_auth else []
+)
+app.include_router(
+    stream.router,
+    dependencies=[Depends(verify_api_key)] if settings.enable_auth else []
+)
+app.include_router(
+    hitl.router,
+    dependencies=[Depends(verify_api_key)] if settings.enable_auth else []
+)
+app.include_router(
+    tools.router,
+    dependencies=[Depends(verify_api_key)] if settings.enable_auth else []
+)
+app.include_router(
+    agents.router,
+    dependencies=[Depends(verify_api_key)] if settings.enable_auth else []
+)
 
 
 # Specific exception handlers

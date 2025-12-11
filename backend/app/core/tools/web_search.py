@@ -2,12 +2,27 @@
 Web Search Tool
 
 Provides web search capabilities for agents.
-Currently returns mock data - integrate with a real search API in production.
+
+WARNING: This is a MOCK implementation that returns synthetic data.
+         DO NOT use in production without integrating with a real search API.
+         
+Integration options:
+- Google Custom Search API
+- Bing Search API  
+- DuckDuckGo API
+- Tavily Search API
 """
 
+import logging
 import time
 from typing import Any, Dict, List, Tuple
 from .base import Tool, ToolParameter, ToolError
+
+
+logger = logging.getLogger(__name__)
+
+# Flag to track if warning has been logged this session
+_MOCK_WARNING_LOGGED = False
 
 
 class WebSearchTool(Tool):
@@ -85,8 +100,17 @@ class WebSearchTool(Tool):
         """
         Execute web search.
         
-        This is a MOCK implementation. Replace with actual search API.
+        WARNING: This is a MOCK implementation that returns synthetic data.
+        Replace with actual search API integration before production use.
         """
+        global _MOCK_WARNING_LOGGED
+        if not _MOCK_WARNING_LOGGED:
+            logger.warning(
+                "WebSearchTool is using MOCK data. Results are synthetic and not from real web searches. "
+                "Integrate with a real search API (Google, Bing, Tavily) before production use."
+            )
+            _MOCK_WARNING_LOGGED = True
+        
         cache_key = (query, max_results)
         now = time.monotonic()
 

@@ -4,9 +4,13 @@ Domain Models - Core business entities
 These represent the core concepts in your application domain.
 """
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field, ConfigDict
+
+
+# Type alias for process status - provides type safety and IDE autocomplete
+ProcessStatus = Literal["pending", "running", "completed", "failed"]
 
 
 
@@ -45,44 +49,52 @@ class DecisionState(BaseModel):
     # User Input
     decision_requested: str = Field(
         default="",
+        max_length=10000,
         description="The original decision query from the user"
     )
     
     # Analysis Phase
     trigger: str = Field(
         default="",
+        max_length=5000,
         description="Identified trigger for the decision (opportunity, problem, crisis)"
     )
     
     root_cause: str = Field(
         default="",
+        max_length=8000,
         description="Root cause analysis using 5 Whys or Fishbone"
     )
     
     scope_definition: str = Field(
         default="",
+        max_length=8000,
         description="Defined scope of the decision (what's in/out of scope)"
     )
     
     # Drafting Phase
     decision_drafted: str = Field(
         default="",
+        max_length=15000,
         description="Initial drafted decision document"
     )
     
     goals: str = Field(
         default="",
+        max_length=8000,
         description="Established goals and success metrics (SMART format)"
     )
     
     stakeholders: str = Field(
         default="",
+        max_length=5000,
         description="Identified stakeholders and their interests"
     )
     
     # Information Gathering
     complementary_info: str = Field(
         default="",
+        max_length=20000,
         description="Additional information gathered to inform decision"
     )
     
@@ -91,10 +103,17 @@ class DecisionState(BaseModel):
         ge=0,  # Greater than or equal to 0
         description="Number of information items gathered"
     )
+    
+    info_needed_current: str = Field(
+        default="",
+        max_length=5000,
+        description="Current information need being retrieved (persisted for retry loops)"
+    )
 
     # Memory / Retrieval
     memory_context: str = Field(
         default="",
+        max_length=20000,
         description="Retrieved context from memory store"
     )
     memory_hits: int = Field(
@@ -112,38 +131,56 @@ class DecisionState(BaseModel):
     # Refinement Phase
     decision_draft_updated: str = Field(
         default="",
+        max_length=15000,
         description="Updated decision draft after information gathering"
     )
     
     generated_alternatives: str = Field(
         default="",
+        max_length=15000,
         description="Generated alternative options"
     )
     
     alternatives: str = Field(
         default="",
+        max_length=15000,
         description="Formatted alternatives with evaluation criteria"
     )
     
     # Final Results
     result: str = Field(
         default="",
+        max_length=10000,
         description="The selected decision option"
     )
     
     result_comment: str = Field(
         default="",
+        max_length=10000,
         description="Explanation of why this option was selected"
     )
     
     best_alternative_result: str = Field(
         default="",
+        max_length=10000,
         description="The best alternative option (runner-up)"
     )
     
     best_alternative_result_comment: str = Field(
         default="",
+        max_length=10000,
         description="Explanation of the alternative option"
+    )
+    
+    # Quality & Review Flags
+    quality_warnings: list[str] = Field(
+        default_factory=list,
+        description="Quality warnings for outputs that were accepted after max retries"
+    )
+    
+    needs_human_review: bool = Field(
+        default=False,
+        description="Flag indicating if human review is recommended due to quality concerns"
     )
     
 
@@ -274,9 +311,8 @@ class ProcessInfo(BaseModel):
         description="The original decision query for this process"
     )
     
-    status: str = Field(
+    status: ProcessStatus = Field(
         ...,
-        pattern="^(pending|running|completed|failed)$",
         description="Process status: pending, running, completed, or failed"
     )
     
@@ -300,6 +336,12 @@ class ProcessInfo(BaseModel):
     error: Optional[str] = Field(
         default=None,
         description="Error message if process failed"
+    )
+    
+    # Metadata for additional information (error tracebacks, debugging info, etc.)
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata for debugging and diagnostics"
     )
     
     # Accept either an ISO formatted string or a datetime to make tests and
